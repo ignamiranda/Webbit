@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Webbit" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/webbit_primary</item>
+        <item name="android:statusBarColor">@color/webbit_primary_dark</item>
+    </style>
+</resources>

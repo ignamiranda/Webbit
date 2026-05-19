@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="webbit_primary">#FF5722</color>
+    <color name="webbit_primary_dark">#BF360C</color>
+</resources>
