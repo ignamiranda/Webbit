@@ -85,15 +85,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
       },
       onLoadStop: (controller, url) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
-        if (!isWindows) {
-          await controller.evaluateJavascript(source: AdblockEngine.documentStartScript);
-        }
       },
       onUpdateVisitedHistory: (controller, url, isReload) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
-        if (!isWindows) {
-          await controller.evaluateJavascript(source: AdblockEngine.documentStartScript);
-        }
       },
     );
   }
