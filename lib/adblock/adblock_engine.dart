@@ -11,22 +11,51 @@ class AdblockEngine {
     'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt',
   ];
 
+  static const _hardBlockedDomains = <String>{
+    'fonts.googleapis.com',
+    'fonts.gstatic.com',
+    'use.typekit.net',
+    'pixel.redditmedia.com',
+    'events.redditmedia.com',
+    'out.reddit.com',
+    'securepubads.g.doubleclick.net',
+    'tpc.googlesyndication.com',
+  };
+
+  static const _fontExtensions = <String>{
+    '.woff2',
+    '.woff',
+    '.ttf',
+    '.eot',
+    '.otf',
+  };
+
   final Set<String> _domainFilters = {};
   final Set<String> _exceptionDomains = {};
-  final List<_PathFilter> _pathFilters = [];
-  final List<_PathFilter> _exceptionPaths = [];
+  final Map<String, Set<String>> _blockedPaths = {};
+  final Map<String, Set<String>> _exceptionPaths = {};
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
 
-  Future<void> initialize() async {
+  Future<void> initializeFromCache() async {
     final dir = await getApplicationDocumentsDirectory();
     final cacheDir = Directory('${dir.path}/webbit/filters');
     if (!await cacheDir.exists()) {
       await cacheDir.create(recursive: true);
     }
     await _loadFromCache(cacheDir);
-    _updateFilterLists(cacheDir);
+  }
+
+  Future<void> updateFilterLists() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final cacheDir = Directory('${dir.path}/webbit/filters');
+    await _downloadFilters(cacheDir);
+  }
+
+  Future<void> initialize() async {
+    await initializeFromCache();
+    await updateFilterLists();
   }
 
   Future<void> _loadFromCache(Directory dir) async {
@@ -39,7 +68,7 @@ class AdblockEngine {
     _loaded = _domainFilters.isNotEmpty;
   }
 
-  Future<void> _updateFilterLists(Directory dir) async {
+  Future<void> _downloadFilters(Directory dir) async {
     for (final url in _filterListUrls) {
       try {
         final response = await http.get(Uri.parse(url)).timeout(
@@ -69,10 +98,9 @@ class AdblockEngine {
           final parts = rule.substring(2).split('^');
           if (parts.isNotEmpty && parts[0].contains('/')) {
             final si = parts[0].indexOf('/');
-            _exceptionPaths.add(_PathFilter(
-              parts[0].substring(0, si),
-              parts[0].substring(si),
-            ));
+            _exceptionPaths
+                .putIfAbsent(parts[0].substring(0, si), () => {})
+                .add(parts[0].substring(si));
           }
         }
         continue;
@@ -91,7 +119,9 @@ class AdblockEngine {
           final first = parts[0];
           final si = first.indexOf('/');
           if (si > 0) {
-            _pathFilters.add(_PathFilter(first.substring(0, si), first.substring(si)));
+            _blockedPaths
+                .putIfAbsent(first.substring(0, si), () => {})
+                .add(first.substring(si));
           } else {
             _domainFilters.add(first);
           }
@@ -106,30 +136,57 @@ class AdblockEngine {
       final host = uri.host;
       final path = uri.path;
 
-      for (final ex in _exceptionDomains) {
-        if (host == ex || host.endsWith('.$ex')) {
-          return false;
-        }
-      }
-      for (final ex in _exceptionPaths) {
-        if ((host == ex.domain || host.endsWith('.${ex.domain}')) &&
-            path.startsWith(ex.pathPrefix)) {
-          return false;
-        }
-      }
+      if (_matchesException(host, path)) return false;
 
-      for (final domain in _domainFilters) {
-        if (host == domain || host.endsWith('.$domain')) {
-          return true;
-        }
-      }
-      for (final f in _pathFilters) {
-        if ((host == f.domain || host.endsWith('.${f.domain}')) &&
-            path.startsWith(f.pathPrefix)) {
-          return true;
-        }
-      }
+      if (_matchesAnyDomain(host, _hardBlockedDomains)) return true;
+
+      if (_isFontUrl(path)) return true;
+
+      if (_matchesAnyDomain(host, _domainFilters)) return true;
+
+      if (_matchesAnyPath(host, path, _blockedPaths)) return true;
     } catch (_) {}
+    return false;
+  }
+
+  bool _matchesException(String host, String path) {
+    if (_matchesAnyDomain(host, _exceptionDomains)) return true;
+    if (_matchesAnyPath(host, path, _exceptionPaths)) return true;
+    return false;
+  }
+
+  bool _matchesAnyDomain(String host, Set<String> domains) {
+    if (domains.contains(host)) return true;
+    var dotIndex = host.indexOf('.');
+    while (dotIndex > 0 && dotIndex < host.length - 1) {
+      if (domains.contains(host.substring(dotIndex + 1))) return true;
+      dotIndex = host.indexOf('.', dotIndex + 1);
+    }
+    return false;
+  }
+
+  bool _matchesAnyPath(
+      String host, String path, Map<String, Set<String>> pathMap) {
+    var current = host;
+    while (true) {
+      final rules = pathMap[current];
+      if (rules != null) {
+        for (final prefix in rules) {
+          if (path.startsWith(prefix)) return true;
+        }
+      }
+      final dotIndex = current.indexOf('.');
+      if (dotIndex <= 0 || dotIndex >= current.length - 1) break;
+      current = current.substring(dotIndex + 1);
+    }
+    return false;
+  }
+
+  bool _isFontUrl(String path) {
+    final lower = path.toLowerCase();
+    for (final ext in _fontExtensions) {
+      if (lower.endsWith(ext)) return true;
+    }
     return false;
   }
 
@@ -248,10 +305,4 @@ class AdblockEngine {
         .replaceAll('\n', '\\n')
         .replaceAll('\r', '');
   }
-}
-
-class _PathFilter {
-  final String domain;
-  final String pathPrefix;
-  _PathFilter(this.domain, this.pathPrefix);
 }

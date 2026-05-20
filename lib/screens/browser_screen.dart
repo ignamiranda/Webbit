@@ -14,10 +14,37 @@ class BrowserScreen extends StatefulWidget {
 class _BrowserScreenState extends State<BrowserScreen> {
   final AdblockEngine _adblock = AdblockEngine();
   final String _userAgent;
-  bool _adblockReady = false;
 
   _BrowserScreenState()
       : _userAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
+
+  static const _preconnectJS = '''
+(function() {
+  var links = [
+    {rel:"preconnect", href:"https://www.redditstatic.com"},
+    {rel:"preconnect", href:"https://www.redditmedia.com"},
+    {rel:"preconnect", href:"https://preview.redd.it"},
+    {rel:"preconnect", href:"https://i.redd.it"},
+    {rel:"dns-prefetch", href:"https://www.redditstatic.com"},
+    {rel:"dns-prefetch", href:"https://www.redditmedia.com"},
+    {rel:"dns-prefetch", href:"https://preview.redd.it"},
+    {rel:"dns-prefetch", href:"https://i.redd.it"},
+  ];
+  var head = document.head || document.querySelector("head");
+  if (head) {
+    links.forEach(function(l) {
+      try {
+        if (!head.querySelector('link[rel="'+l.rel+'"][href="'+l.href+'"]')) {
+          var el = document.createElement("link");
+          el.rel = l.rel;
+          el.href = l.href;
+          head.appendChild(el);
+        }
+      } catch(e) {}
+    });
+  }
+})();
+''';
 
   @override
   void initState() {
@@ -30,17 +57,15 @@ class _BrowserScreenState extends State<BrowserScreen> {
   }
 
   Future<void> _initAdblock() async {
-    await _adblock.initialize();
-    if (mounted) setState(() => _adblockReady = true);
+    await _adblock.initializeFromCache();
+    _adblock.updateFilterLists();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: _adblockReady
-          ? SafeArea(top: true, bottom: false, child: _buildWebView())
-          : const Center(child: CircularProgressIndicator()),
+      body: SafeArea(top: true, bottom: false, child: _buildWebView()),
     );
   }
 
@@ -65,6 +90,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
         supportZoom: true,
         userAgent: _userAgent,
         cacheEnabled: true,
+        cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
         mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
       ),
       initialUserScripts: UnmodifiableListView([
@@ -86,15 +112,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
         return null;
       },
       onLoadStart: (controller, url) async {
-        await controller.evaluateJavascript(source: _adblock.cosmeticFiltersJS);
-      },
-      onLoadStop: (controller, url) async {
-        await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
-        await controller.evaluateJavascript(source: _adblock.cosmeticFiltersJS);
-      },
-      onUpdateVisitedHistory: (controller, url, isReload) async {
-        await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
-        await controller.evaluateJavascript(source: _adblock.cosmeticFiltersJS);
+        await controller.evaluateJavascript(source: _preconnectJS);
       },
     );
   }
