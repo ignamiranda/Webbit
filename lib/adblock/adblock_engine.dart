@@ -15,7 +15,6 @@ class AdblockEngine {
   final Set<String> _exceptionDomains = {};
   final List<_PathFilter> _pathFilters = [];
   final List<_PathFilter> _exceptionPaths = [];
-  final Set<String> _cosmeticFilters = {};
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
@@ -79,14 +78,7 @@ class AdblockEngine {
         continue;
       }
 
-      if (t.contains('##')) {
-        final selector = t.split('##').last.trim();
-        if (selector.isNotEmpty && !selector.contains(':has(') && !selector.contains(':upward(') && !selector.contains(':not(')) {
-          _cosmeticFilters.add(selector);
-        }
-        continue;
-      }
-      if (t.contains('#') && !t.startsWith('||') && !t.startsWith('@@') && !t.contains('^')) continue;
+      if (t.contains('##') || t.contains('#')) continue;
 
       if (t.startsWith('||') && t.endsWith('^')) {
         _domainFilters.add(t.substring(2, t.length - 1));
@@ -147,41 +139,20 @@ class AdblockEngine {
     return last.endsWith('.txt') ? last.substring(0, last.length - 4) : last;
   }
 
-  String get cosmeticFiltersCSS {
-    final buffer = StringBuffer()
-      ..writeln('shreddit-ad-post, shreddit-comments-page-ad, shreddit-promoted-post { display: none !important; }')
-      ..writeln('[data-faceplate-tracking-context*="promoted"] { display: none !important; }')
-      ..writeln('[data-ad-slot] { display: none !important; }')
-      ..writeln('[data-promoted] { display: none !important; }')
-      ..writeln('.promotedlink { display: none !important; }')
-      ..writeln('[data-testid*="promoted"] { display: none !important; }')
-      ..writeln('[class*="promoted"] { display: none !important; }')
-      ..writeln('[id*="promoted"] { display: none !important; }')
-      ..writeln('div[data-before-content="advertisement"] { display: none !important; }')
-      ..writeln('.native-ad-container { display: none !important; }');
-    for (final sel in _cosmeticFilters) {
-      buffer.writeln('$sel { display: none !important; }');
-    }
-    return buffer.toString();
-  }
-
-  static const String documentStartScript = '''
-(function() {
-  function scan() {
-    var t = document.querySelectorAll('span, a, div, small, faceplate-screen-reader-text');
-    for (var i = 0; i < t.length; i++) {
-      var txt = t[i].textContent.trim();
-      if ((txt === 'Promoted' || txt === 'promoted') && t[i].offsetParent) {
-        var p = t[i].closest('shreddit-post, shreddit-ad-post, article, [data-testid="post-container"], [data-testid*="post"], faceplate-track, div[role="article"], div.Post');
-        if (p) p.style.setProperty('display', 'none', 'important');
-      }
-    }
-  }
-  if (document.body) scan();
-  document.addEventListener('DOMContentLoaded', scan);
-  setInterval(scan, 3000);
-})();
-''';
+  String get cosmeticFiltersCSS => '''
+    [data-ad-slot] { display: none !important; }
+    .promotedlink { display: none !important; }
+    [data-testid*="promoted"] { display: none !important; }
+    [class*="promoted"] { display: none !important; }
+    [id*="promoted"] { display: none !important; }
+    [class*="ad-"] { display: none !important; }
+    [id*="ad-"] { display: none !important; }
+    shreddit-ad-post { display: none !important; }
+    shreddit-comments-page-ad { display: none !important; }
+    [data-faceplate-tracking-context*="promoted"] { display: none !important; }
+    div[data-before-content="advertisement"] { display: none !important; }
+    .native-ad-container { display: none !important; }
+  ''';
 }
 
 class _PathFilter {

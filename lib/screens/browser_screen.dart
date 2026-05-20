@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -41,8 +40,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
   }
 
   Widget _buildWebView() {
-    final isWindows = Platform.isWindows;
-
     return InAppWebView(
       initialUrlRequest: URLRequest(
         url: WebUri('https://www.reddit.com'),
@@ -56,12 +53,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
           'Upgrade-Insecure-Requests': '1',
         },
       ),
-      initialUserScripts: isWindows
-          ? UnmodifiableListView([UserScript(
-              source: AdblockEngine.documentStartScript,
-              injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
-            )])
-          : null,
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
         domStorageEnabled: true,
@@ -84,9 +75,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
         return null;
       },
       onLoadStop: (controller, url) async {
-        await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
-      },
-      onUpdateVisitedHistory: (controller, url, isReload) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
       },
     );
