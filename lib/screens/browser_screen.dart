@@ -1,8 +1,14 @@
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../adblock/adblock_engine.dart';
+
+final _promotedScanner = UserScript(
+  source: AdblockEngine.documentStartScript,
+  injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+);
 
 class BrowserScreen extends StatefulWidget {
   const BrowserScreen({super.key});
@@ -53,6 +59,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
           'Upgrade-Insecure-Requests': '1',
         },
       ),
+      initialUserScripts: UnmodifiableListView([_promotedScanner]),
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
         domStorageEnabled: true,
@@ -75,6 +82,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
         return null;
       },
       onLoadStop: (controller, url) async {
+        await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
+      },
+      onUpdateVisitedHistory: (controller, url, isReload) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
       },
     );
