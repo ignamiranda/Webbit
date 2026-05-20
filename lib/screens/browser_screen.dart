@@ -5,11 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../adblock/adblock_engine.dart';
 
-final _promotedScanner = UserScript(
-  source: AdblockEngine.documentStartScript,
-  injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
-);
-
 class BrowserScreen extends StatefulWidget {
   const BrowserScreen({super.key});
 
@@ -46,6 +41,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
   }
 
   Widget _buildWebView() {
+    final isWindows = Platform.isWindows;
+
     return InAppWebView(
       initialUrlRequest: URLRequest(
         url: WebUri('https://www.reddit.com'),
@@ -59,7 +56,12 @@ class _BrowserScreenState extends State<BrowserScreen> {
           'Upgrade-Insecure-Requests': '1',
         },
       ),
-      initialUserScripts: UnmodifiableListView([_promotedScanner]),
+      initialUserScripts: isWindows
+          ? UnmodifiableListView([UserScript(
+              source: AdblockEngine.documentStartScript,
+              injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+            )])
+          : null,
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
         domStorageEnabled: true,
@@ -83,9 +85,15 @@ class _BrowserScreenState extends State<BrowserScreen> {
       },
       onLoadStop: (controller, url) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
+        if (!isWindows) {
+          await controller.evaluateJavascript(source: AdblockEngine.documentStartScript);
+        }
       },
       onUpdateVisitedHistory: (controller, url, isReload) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
+        if (!isWindows) {
+          await controller.evaluateJavascript(source: AdblockEngine.documentStartScript);
+        }
       },
     );
   }
