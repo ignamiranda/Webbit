@@ -1,49 +1,46 @@
-# Webbit — AGENTS.md
+# Webbit
 
-Android APK wrapping Reddit mobile site with uBlock Origin filter-list ad blocking.
+Android WebView wrapper for reddit.com with built-in adblock using uBlock Origin filter lists.
 
-## Tech stack
+## Stack
 
-- **Language**: Kotlin 2.1, **Build**: Gradle 8.11 + AGP 8.7 (Kotlin DSL, version catalog)
-- **minSdk** 26 / **targetSdk** 35 / **compileSdk** 35
-- **Single-Activity** (`MainActivity`) + fullscreen `WebView`
+- **Flutter 3.38** (Dart 3.10) targeting **Android** + **Windows**
+- `flutter_inappwebview: ^6.1` for WebView with network request interception (`shouldInterceptRequest`)
+- Adblock via downloaded EasyList + uBlock Origin filter lists, parsed in `lib/adblock/`
+
+## Key constraints
+
+- `shouldInterceptRequest` fires for sub-resources (images, scripts, XHR). Main frame requests pass through — adblock only blocks sub-requests. Uses `isForMainFrame != true` guard.
+- Filter lists are downloaded at startup from easylist.to + GitHub (uAssets). Stored in app documents dir under `webbit/filters/`. Download failures are silently ignored (cached version used if available).
+- Cosmetic CSS is injected on each page load via `injectCSSCode()` to hide Reddit first-party promoted content.
+
+## Commands
+
+| Action | Command |
+|--------|---------|
+| Run on Windows (testing) | `flutter run -d windows` |
+| Build APK (debug) | `flutter build apk --debug` |
+| Build APK (release) | `flutter build apk --release` |
+| Analyze | `flutter analyze` |
+| Tests | `flutter test` |
 
 ## Architecture
 
 ```
-app/src/main/java/com/webbit/app/
-├── adblock/
-│   ├── FilterRule.kt          # Data model + uBlock filter list parser
-│   ├── AdBlockerEngine.kt     # Domain-indexed block/exception engine
-│   └── FilterListManager.kt   # Downloads & caches 4 uBlock lists via OkHttp
-├── webview/
-│   └── WebbitWebViewClient.kt # Intercepts requests, checks AdBlockerEngine
-├── WebbitApp.kt               # Application class, schedules WorkManager updates
-├── FilterUpdateWorker.kt      # Daily background filter list refresh
-└── MainActivity.kt            # WebView host, loads filters on start
+lib/
+  main.dart              — entry point
+  app.dart               — MaterialApp
+  screens/browser_screen.dart — InAppWebView + adblock wiring, loads www.reddit.com
+  adblock/adblock_engine.dart  — filter download, parse, URL matching
 ```
 
-## Ad blocking — how it works
+## Future work (not yet implemented)
 
-- `AdBlockerEngine` indexes rules by domain. On each request, it checks all subdomain candidates → path regex → resource type → exception rules.
-- `WebbitWebViewClient.shouldInterceptRequest` returns an empty response for blocked URLs. Main document requests are never blocked.
-- Filter lists are downloaded from `uBlockOrigin/uAssets` on first launch, cached in `context.cacheDir/filter_lists/`, and refreshed daily via `WorkManager`.
-- Current sources: `filters.txt`, `privacy.txt`, `quick-fixes.txt`, `unbreak.txt`.
+- Account switching (cookie/profile management)
+- Embedded media previews for unsupported sites
+- Caching layer for responsiveness
+- Settings screen (filter list selection, user agent config)
 
-## Build commands
+## Android build note
 
-```bash
-./gradlew assembleDebug          # Build debug APK
-./gradlew assembleRelease        # Build release APK (minified w/ ProGuard)
-```
-
-APK output: `app/build/outputs/apk/debug/app-debug.apk`
-
-## Notes
-
-- No Gradle wrapper jar committed. Run `gradle wrapper` or open in Android Studio to generate it.
-- Requires JDK 17+ and `ANDROID_HOME` pointing to an Android SDK with platforms 35.
-- User agent strips `; wv)` to avoid WebView detection — reddit serves mobile site.
-- Filter rules without a `||domain` prefix (bare path patterns) are treated as generic rules and checked against every request domain.
-- Third-party and `domain=` filter options are parsed but **currently ignored** during matching.
-- `proguard-rules.pro` keeps WebViewClient, OkHttp, and Coroutines entry points.
+Release builds require a signing config. Current `build.gradle.kts` uses debug signing for release — override before distribution.
