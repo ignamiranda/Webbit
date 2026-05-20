@@ -24,6 +24,12 @@ Android WebView wrapper for reddit.com with built-in adblock using uBlock Origin
 | Analyze | `flutter analyze` |
 | Tests | `flutter test` |
 
+## CI / Release
+
+- `.github/workflows/build-apk.yml` — runs `flutter analyze` + `flutter test`, then builds and uploads release APK as artifact.
+- Pushing a tag `v*` triggers a GitHub Release with the APK attached.
+- Release signing uses GitHub Secrets: `ANDROID_KEYSTORE_BASE64` (base64-encoded .jks), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. If absent, debug signing is used.
+
 ## Architecture
 
 ```
@@ -43,4 +49,4 @@ lib/
 
 ## Android build note
 
-Release builds require a signing config. Current `build.gradle.kts` uses debug signing for release — override before distribution.
+Release builds require a signing config. The `build.gradle.kts` reads `ANDROID_KEYSTORE_PATH`/`ANDROID_KEYSTORE_PASSWORD`/`ANDROID_KEY_ALIAS`/`ANDROID_KEY_PASSWORD` env vars. If unset, debug signing is used (fine for testing).
