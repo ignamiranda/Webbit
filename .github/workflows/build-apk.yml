@@ -15,6 +15,15 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: gradle-
 
       - run: flutter pub get
       - run: flutter analyze
@@ -26,8 +35,13 @@ jobs:
             echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
           fi
 
-      - name: Build release APK
-        run: flutter build apk --release
+      - name: Build APK
+        run: |
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            flutter build apk --release
+          else
+            flutter build apk --debug
+          fi
         env:
           ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && 'keystore.jks' || '' }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -39,10 +53,12 @@ jobs:
           SHORT="${GITHUB_SHA:0:7}"
           if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
             VERSION="${{ github.ref_name }}"
+            SUFFIX="release"
           else
             VERSION="${SHORT}"
+            SUFFIX="debug"
           fi
-          cp build/app/outputs/flutter-apk/app-release.apk "Webbit-${VERSION}.apk"
+          cp build/app/outputs/flutter-apk/app-${SUFFIX}.apk "Webbit-${VERSION}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
