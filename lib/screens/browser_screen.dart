@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../adblock/adblock_engine.dart';
 
@@ -24,6 +24,10 @@ class _BrowserScreenState extends State<BrowserScreen> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light,
+    ));
     _initAdblock();
   }
 
@@ -35,7 +39,10 @@ class _BrowserScreenState extends State<BrowserScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _adblockReady ? _buildWebView() : const Center(child: CircularProgressIndicator()),
+      backgroundColor: Colors.black,
+      body: _adblockReady
+          ? SafeArea(top: true, bottom: false, child: _buildWebView())
+          : const Center(child: CircularProgressIndicator()),
     );
   }
 
@@ -75,6 +82,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
         return null;
       },
       onLoadStop: (controller, url) async {
+        await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
+      },
+      onUpdateVisitedHistory: (controller, url, isReload) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
       },
     );
