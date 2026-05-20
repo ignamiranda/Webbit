@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -17,9 +17,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   bool _adblockReady = false;
 
   _BrowserScreenState()
-      : _userAgent = Platform.isWindows
-            ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-            : 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
+      : _userAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
 
   @override
   void initState() {
@@ -63,12 +61,18 @@ class _BrowserScreenState extends State<BrowserScreen> {
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
         domStorageEnabled: true,
-        useWideViewPort: true,
+        useWideViewPort: false,
         supportZoom: true,
         userAgent: _userAgent,
         cacheEnabled: true,
         mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
       ),
+      initialUserScripts: UnmodifiableListView([
+        UserScript(
+          source: _adblock.initialCSSInjectionJS,
+          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+        ),
+      ]),
       shouldInterceptRequest: (controller, request) async {
         final url = request.url.toString();
         if (request.isForMainFrame != true && _adblock.shouldBlock(url)) {
@@ -81,11 +85,16 @@ class _BrowserScreenState extends State<BrowserScreen> {
         }
         return null;
       },
+      onLoadStart: (controller, url) async {
+        await controller.evaluateJavascript(source: _adblock.cosmeticFiltersJS);
+      },
       onLoadStop: (controller, url) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
+        await controller.evaluateJavascript(source: _adblock.cosmeticFiltersJS);
       },
       onUpdateVisitedHistory: (controller, url, isReload) async {
         await controller.injectCSSCode(source: _adblock.cosmeticFiltersCSS);
+        await controller.evaluateJavascript(source: _adblock.cosmeticFiltersJS);
       },
     );
   }
