@@ -8,36 +8,17 @@ on:
     branches: [master]
 
 jobs:
-  analyze:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
       - run: flutter pub get
       - run: flutter analyze
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-      - run: flutter pub get
       - run: flutter test
-
-  build-apk:
-    needs: [analyze, test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - run: flutter pub get
 
       - name: Set up Android keystore
         run: |
@@ -65,19 +46,19 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: apk-release
+          name: apk
           path: Webbit-*.apk
 
   release:
     if: github.event_name == 'push'
-    needs: [build-apk]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: apk-release
+          name: apk
 
       - name: Generate release tag and name
         id: tag
