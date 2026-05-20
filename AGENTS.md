@@ -27,7 +27,8 @@ Android WebView wrapper for reddit.com with built-in adblock using uBlock Origin
 ## CI / Release
 
 - `.github/workflows/build-apk.yml` — runs `flutter analyze` + `flutter test`, then builds and uploads release APK as artifact.
-- Pushing a tag `v*` triggers a GitHub Release with the APK attached.
+- Every push to `master` auto-creates a prerelease on GitHub with the APK attached.
+- Pushing a tag `v*` creates a full (non-prerelease) Release.
 - Release signing uses GitHub Secrets: `ANDROID_KEYSTORE_BASE64` (base64-encoded .jks), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. If absent, debug signing is used.
 
 ## Architecture
