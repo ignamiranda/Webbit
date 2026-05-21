@@ -59,59 +59,19 @@ class AccountManager {
     await _save();
   }
 
+  Future<void> markActive(String id) async {
+    final account = _accounts.firstWhere((a) => a.id == id);
+    account.lastUsedAt = DateTime.now();
+    _lastActiveId = id;
+    await _save();
+  }
+
   Future<void> removeAccount(String id) async {
     _accounts.removeWhere((a) => a.id == id);
     if (_lastActiveId == id) {
       _lastActiveId = _accounts.isNotEmpty ? _accounts.last.id : null;
     }
     await _save();
-  }
-
-  Future<void> switchToAccount(String id) async {
-    final account = _accounts.firstWhere((a) => a.id == id);
-    await CookieManager.instance().deleteAllCookies();
-    for (final cookie in account.cookies) {
-      final domain = cookie.domain ?? 'www.reddit.com';
-      final url = domain.startsWith('.')
-          ? WebUri('https://${domain.substring(1)}')
-          : WebUri('https://$domain');
-      await CookieManager.instance().setCookie(
-        url: url,
-        name: cookie.name,
-        value: cookie.value?.toString() ?? '',
-        domain: cookie.domain,
-        path: cookie.path ?? '/',
-        isSecure: cookie.isSecure,
-        isHttpOnly: cookie.isHttpOnly,
-        expiresDate: cookie.expiresDate,
-      );
-    }
-    account.lastUsedAt = DateTime.now();
-    _lastActiveId = id;
-    await _save();
-  }
-
-  Future<List<Cookie>> captureCookies() async {
-    final cookies = <Cookie>[];
-    for (final url in ['https://www.reddit.com', 'https://reddit.com']) {
-      final fetched =
-          await CookieManager.instance().getCookies(url: WebUri(url));
-      for (final cookie in fetched) {
-        final isDuplicate = cookies.any(
-          (c) => c.name == cookie.name && c.domain == cookie.domain,
-        );
-        if (!isDuplicate) {
-          cookies.add(cookie);
-        }
-      }
-    }
-    return cookies;
-  }
-
-  Future<bool> isLoggedIn() async {
-    final cookies =
-        await CookieManager.instance().getCookies(url: WebUri('https://www.reddit.com'));
-    return cookies.any((c) => c.name == 'reddit_session');
   }
 
   Future<void> _load() async {

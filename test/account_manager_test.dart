@@ -110,6 +110,33 @@ void main() {
       expect(id, manager.accounts.first.id);
     });
 
+    test('markActive updates lastUsedAt and lastActiveId', () async {
+      final manager = AccountManager(storagePath: storagePath);
+      await manager.initialize();
+      await manager.addAccount('Alice', []);
+      await manager.addAccount('Bob', []);
+
+      final aliceId = manager.accounts.first.id;
+      final bobId = manager.accounts.last.id;
+      expect(manager.lastActiveId, bobId);
+
+      await manager.markActive(aliceId);
+      expect(manager.lastActiveId, aliceId);
+    });
+
+    test('markActive persists across instances', () async {
+      final manager = AccountManager(storagePath: storagePath);
+      await manager.initialize();
+      await manager.addAccount('Alice', []);
+      await manager.addAccount('Bob', []);
+      final aliceId = manager.accounts.first.id;
+      await manager.markActive(aliceId);
+
+      final manager2 = AccountManager(storagePath: storagePath);
+      await manager2.initialize();
+      expect(manager2.lastActiveId, aliceId);
+    });
+
     test('handles corrupted JSON gracefully', () async {
       File(storagePath).writeAsStringSync('not valid json');
       final manager = AccountManager(storagePath: storagePath);

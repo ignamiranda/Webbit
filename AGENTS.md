@@ -35,14 +35,37 @@ Android WebView wrapper for reddit.com with built-in adblock using uBlock Origin
 
 ```
 lib/
-  main.dart              — entry point
-  app.dart               — MaterialApp
-  screens/browser_screen.dart — InAppWebView + adblock wiring, loads www.reddit.com
-  screens/account_sheet.dart  — bottom sheet for account switching UI
-  adblock/adblock_engine.dart  — filter download, parse, URL matching
-  services/account_manager.dart — cookie profile CRUD, cookie swap, login detection
-  models/reddit_account.dart   — account data model with JSON serialization
+  main.dart                           — entry point
+  app.dart                            — MaterialApp
+  screens/
+    browser_screen.dart               — InAppWebView + composes all services
+    account_sheet.dart                — bottom sheet for account switching UI
+  services/
+    account_manager.dart              — Account CRUD + persistence (pure data)
+    cookie_session_manager.dart       — Cookie session switch/capture/detect
+    cookie_store.dart                 — CookieStore interface + adapters
+    username_resolver.dart            — UsernameResolver: DOM + API strategies
+  adblock/
+    adblock_engine.dart               — Facade composing downloader→parser→matcher
+    rule_set.dart                     — RuleSet value type (block/exception domain+path sets)
+    url_matcher.dart                  — O(1) URL matching against RuleSet
+    filter_list_parser.dart           — Filter text → RuleSet (pure function)
+    filter_list_downloader.dart       — HTTP download + disk cache
+  models/
+    reddit_account.dart               — account data model with JSON serialization
 ```
+
+## Deepened modules (refactored)
+
+- **Adblock Pipeline** — `FilterListDownloader` + `FilterListParser` + `UrlMatcher` split from monolithic `AdblockEngine`. Each is independently testable. `UrlMatcher` accepts synthetic `RuleSet` directly (no HTTP/file I/O needed in tests).
+- **Cookie Session Manager** — `CookieSessionManager` with `CookieStore` seam (abstracts `CookieManager.instance()`). `AccountManager` is now pure CRUD/persistence with no WebView dependency. Switching sessions: find account → `CookieSessionManager.switchToSession()` → `AccountManager.markActive()`.
+- **Username Resolution** — `DomUsernameResolver` (JS eval) + `ApiUsernameResolver` (HTTP) + `CompositeUsernameResolver` (fallback chain) extracted from `BrowserScreen._handleLoginSuccess`.
+
+## Key constraints
+
+- `shouldInterceptRequest` fires for sub-resources (images, scripts, XHR). Main frame requests pass through — adblock only blocks sub-requests. Uses `isForMainFrame != true` guard.
+- Filter lists are downloaded at startup from easylist.to + GitHub (uAssets). Stored in app documents dir under `webbit/filters/`. Download failures are silently ignored (cached version used if available).
+- Cosmetic CSS is injected on each page load via `injectCSSCode()` to hide Reddit first-party promoted content.
 
 ## Features
 
