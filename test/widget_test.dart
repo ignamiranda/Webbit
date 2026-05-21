@@ -35,6 +35,20 @@ void main() {
       expect(engine.shouldBlock('https://fonts.googleapis.com/css2'), true);
       expect(engine.shouldBlock('https://sub.fonts.googleapis.com/foo'), true);
     });
+
+    test('URL cache returns same result without re-parsing', () {
+      final engine = AdblockEngine();
+      final url = 'https://pixel.redditmedia.com/track';
+      expect(engine.shouldBlock(url), true);
+      expect(engine.shouldBlock(url), true);
+    });
+
+    test('URL cache is cleared after filter list update', () {
+      final engine = AdblockEngine();
+      expect(engine.shouldBlock('https://pixel.redditmedia.com/track'), true);
+      engine.clearBlockCache();
+      expect(engine.shouldBlock('https://pixel.redditmedia.com/track'), true);
+    });
   });
 
   group('AccountSheet', () {

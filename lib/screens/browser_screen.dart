@@ -27,7 +27,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   _BrowserScreenState()
       : _userAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
 
-  static const _preconnectJS = '''
+  static const _preconnectScript = '''
 (function() {
   var links = [
     {rel:"preconnect", href:"https://www.redditstatic.com"},
@@ -39,8 +39,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
     {rel:"dns-prefetch", href:"https://preview.redd.it"},
     {rel:"dns-prefetch", href:"https://i.redd.it"},
   ];
-  var head = document.head || document.querySelector("head");
-  if (head) {
+  function inject() {
+    var head = document.head || document.querySelector("head");
+    if (!head) return false;
     links.forEach(function(l) {
       try {
         if (!head.querySelector('link[rel="'+l.rel+'"][href="'+l.href+'"]')) {
@@ -51,7 +52,24 @@ class _BrowserScreenState extends State<BrowserScreen> {
         }
       } catch(e) {}
     });
+    return true;
   }
+  if (!inject()) {
+    var obs = new MutationObserver(function() {
+      if (inject()) obs.disconnect();
+    });
+    obs.observe(document, {childList:true, subtree:true});
+  }
+})();
+''';
+
+  static const _serviceWorkerScript = '''
+(function() {
+  try {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js", {scope: "/"}).catch(function(){});
+    }
+  } catch(e) {}
 })();
 ''';
 
@@ -102,11 +120,26 @@ class _BrowserScreenState extends State<BrowserScreen> {
         cacheEnabled: true,
         cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
         mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
+        builtInZoomControls: false,
+        displayZoomControls: false,
+        disableDefaultErrorPage: true,
+        overScrollMode: OverScrollMode.ALWAYS,
+        verticalScrollBarEnabled: false,
+        saveFormData: false,
+        loadWithOverviewMode: false,
       ),
       initialUserScripts: UnmodifiableListView([
         UserScript(
           source: _adblock.initialCSSInjectionJS,
           injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+        ),
+        UserScript(
+          source: _preconnectScript,
+          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+        ),
+        UserScript(
+          source: _serviceWorkerScript,
+          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
         ),
       ]),
       onWebViewCreated: (controller) {
@@ -127,9 +160,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
           );
         }
         return null;
-      },
-      onLoadStart: (controller, url) async {
-        await controller.evaluateJavascript(source: _preconnectJS);
       },
       onLoadStop: (controller, url) async {
         try {
@@ -212,9 +242,15 @@ class _BrowserScreenState extends State<BrowserScreen> {
     if (mounted) {
       setState(() => _activeAccountId = _accountManager.lastActiveId);
     }
-    _webViewController?.loadUrl(
-      urlRequest: URLRequest(url: WebUri('https://www.reddit.com')),
-    );
+    try {
+      await _webViewController?.evaluateJavascript(
+        source: 'location.href = "https://www.reddit.com"',
+      );
+    } catch (_) {
+      _webViewController?.loadUrl(
+        urlRequest: URLRequest(url: WebUri('https://www.reddit.com')),
+      );
+    }
   }
 
   void _showAccountSheet() {
@@ -270,6 +306,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
     if (mounted) {
       setState(() => _activeAccountId = id);
     }
-    _webViewController?.reload();
+    try {
+      await _webViewController?.evaluateJavascript(source: 'location.reload()');
+    } catch (_) {}
   }
 }

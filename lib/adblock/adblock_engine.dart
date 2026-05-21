@@ -8,6 +8,8 @@ class AdblockEngine {
   final FilterListDownloader _downloader = FilterListDownloader();
   final FilterListParser _parser = FilterListParser();
   bool _loaded = false;
+  final Map<String, bool> _urlBlockCache = {};
+  static const int _maxCacheSize = 1000;
 
   bool get isLoaded => _loaded;
 
@@ -37,9 +39,24 @@ class AdblockEngine {
       combined = combined.merge(parsed);
     }
     _urlMatcher = UrlMatcher(combined);
+    _urlBlockCache.clear();
   }
 
-  bool shouldBlock(String url) => _urlMatcher.shouldBlock(url);
+  bool shouldBlock(String url) {
+    final cached = _urlBlockCache[url];
+    if (cached != null) return cached;
+    final result = _urlMatcher.shouldBlock(url);
+    if (_urlBlockCache.length >= _maxCacheSize) {
+      final keysToRemove = _urlBlockCache.keys.take(_maxCacheSize ~/ 2).toList();
+      for (final key in keysToRemove) {
+        _urlBlockCache.remove(key);
+      }
+    }
+    _urlBlockCache[url] = result;
+    return result;
+  }
+
+  void clearBlockCache() => _urlBlockCache.clear();
 
   static const _cosmeticCSS = '''
     [data-ad-slot] { display: none !important; }
@@ -138,7 +155,7 @@ class AdblockEngine {
   }
   hideOpenApp();
   try { new MutationObserver(hideOpenApp).observe(document.body, { childList: true, subtree: true }); } catch(e) {}
-  (function loop() { hideOpenApp(); requestAnimationFrame(loop); })();
+  (function loop() { hideOpenApp(); setTimeout(loop, 200); })();
 })();
 ''';
   }
