@@ -38,12 +38,18 @@ lib/
   main.dart              — entry point
   app.dart               — MaterialApp
   screens/browser_screen.dart — InAppWebView + adblock wiring, loads www.reddit.com
+  screens/account_sheet.dart  — bottom sheet for account switching UI
   adblock/adblock_engine.dart  — filter download, parse, URL matching
+  services/account_manager.dart — cookie profile CRUD, cookie swap, login detection
+  models/reddit_account.dart   — account data model with JSON serialization
 ```
+
+## Features
+
+- **Account switching** — multiple Reddit accounts stored as cookie profiles. Tap the profile button (bottom-right) to add or switch accounts. Login flow detected via `reddit_session` cookie in `onLoadStop`. Cookies serialized to `accounts.json` in app docs dir.
 
 ## Future work (not yet implemented)
 
-- Account switching (cookie/profile management)
 - Embedded media previews for unsupported sites
 - Caching layer for responsiveness
 - Settings screen (filter list selection, user agent config)
