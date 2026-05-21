@@ -37,11 +37,7 @@ jobs:
 
       - name: Build APK
         run: |
-          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
-            flutter build apk --release --split-per-abi
-          else
-            flutter build apk --debug
-          fi
+          flutter build apk --release --split-per-abi
         env:
           ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && 'keystore.jks' || '' }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -53,15 +49,13 @@ jobs:
           SHORT="${GITHUB_SHA:0:7}"
           if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
             VERSION="${{ github.ref_name }}"
-            # split-per-abi produces app-<abi>-release.apk
-            for f in build/app/outputs/flutter-apk/app-*-release.apk; do
-              ABI=$(echo "$f" | sed 's/.*app-\(.*\)-release\.apk/\1/')
-              cp "$f" "Webbit-${VERSION}-${ABI}.apk"
-            done
           else
             VERSION="${SHORT}"
-            cp build/app/outputs/flutter-apk/app-debug.apk "Webbit-${VERSION}.apk"
           fi
+          for f in build/app/outputs/flutter-apk/app-*-release.apk; do
+            ABI=$(echo "$f" | sed 's/.*app-\(.*\)-release\.apk/\1/')
+            cp "$f" "Webbit-${VERSION}-${ABI}.apk"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
